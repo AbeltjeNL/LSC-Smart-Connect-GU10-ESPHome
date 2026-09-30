@@ -15,6 +15,7 @@ Once opened up you will be greeted with the RGB, Cold White and Warm White LED's
 
 <img width="3024" height="4032" alt="GU10-2" src="https://github.com/user-attachments/assets/8f55bbd1-f205-4666-875c-3e1099407c54" />
 
-The ring containing the LED's is glued in place firmly. I used isopropyl alcohol to weaken the glue bond whilst prying along the sides with a suited prying tool.
+The ring containing the LED's is glued in place firmly. At first I used a knife to cut away the glue and then applying isopropyl alcohol to weaken the glue bond whilst prying along the sides with a suited prying tool.
+Eventualy the glue bond will losen the ring and you can gently grab the ring by the white connector with small pliers to take it out.  
 
 
