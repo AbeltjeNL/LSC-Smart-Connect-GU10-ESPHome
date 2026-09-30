@@ -35,7 +35,7 @@ I:             |        |
 I:         GND | ------ | GND                
 I:     --------+        +--------------------
 ```
-Make sure to solder an extra wire (2nd wire) to GND (you can connect this to the CEN pin later.
+Make sure to solder an extra wire (2nd wire) to GND (you can connect this to the CEN pin later.)
 
 > [!IMPORTANT]
 ```The UART adapter's 3.3V power regulator is usually not enough. Instead, a regulated bench power supply, or a linear 1117-type regulator is recommended.```
