@@ -8,7 +8,7 @@ esphome:
 # https://github.com/openshwprojects/BK7231GUIFlashTool
 # ----------------------------------------------------------------------------------------------------------- #
 # Device configuration, as extracted from Tuya:                                                               #
-# - BP5758D_DAT on P26                                                                                          #
+# - BP5758D_DAT on P26                                                                                        #
 # - BP5758D_CLK on P24                                                                                        #
 # - LED remap is 0 1 2 4 3                                                                                    #
 # - RGB current is 7 mA                                                                                       #
