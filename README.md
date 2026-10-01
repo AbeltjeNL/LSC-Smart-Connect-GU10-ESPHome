@@ -52,7 +52,7 @@ Once you have soldered suitable wires (dupont) to the following pins: 3V3, GND, 
 > You can backup the existing Tuya / LSC firmware by executing this command first:
 ```ltchiptool flash read bk72xx backup.bin```
 > But, if your Action article number is exactly the same I don't think you have to because I already did this.
-> If you chose to do so, I used [BK7231 GUI Flash Tool](https://github.com/openshwprojects/BK7231GUIFlashTool) to create an original firmware backup before flashing and successfully extracted the Tuya GPIO/config from the backup image file.
+> If you chose to do so, I used [BK7231 GUI Flash Tool](https://github.com/openshwprojects/BK7231GUIFlashTool) to successfully extract the Tuya GPIO/config from the backup image file.
 > These findings and settings (like exact Tuya mA current settings for each LED) are in the esphome_config.yaml file.
 
 > [!NOTE]
