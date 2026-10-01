@@ -1,0 +1,519 @@
+# ESPHome instellingen:
+esphome:
+  name: "lsc-gu10"
+  friendly_name: "LSC GU10"
+  comment: "GU10 spot"
+
+# ----------------------------------------------------------------------------------------------------------- #
+# https://github.com/openshwprojects/BK7231GUIFlashTool
+# ----------------------------------------------------------------------------------------------------------- #
+# Device configuration, as extracted from Tuya:                                                               #
+# - BP5758D_DAT on P26                                                                                          #
+# - BP5758D_CLK on P24                                                                                        #
+# - LED remap is 0 1 2 4 3                                                                                    #
+# - RGB current is 7 mA                                                                                       #
+# - Warm white current is 13 mA                                                                               #
+# - Cold white current is 13 mA                                                                               #
+# Device seems to be using T1-U-HL module, which is using BK7238.                                             #
+# And the Tuya section starts at 2052096 (0x1F5000), which is a default T1/XR806 and some T34/BK7231N offset. #
+# ----------------------------------------------------------------------------------------------------------- #
+
+# Specifieke Bord Instellingen:
+bk72xx:
+  board: generic-bk7238-tuya
+
+# Schakel logging in:
+logger:
+
+# Debug:
+debug:
+  update_interval: 10s   
+
+# Home Assistant API aan:  
+api:
+  encryption:
+    key: !secret lsc_gu10_api_key
+
+# OTA instellingen:
+ota:
+  - platform: esphome
+    password: !secret lsc_gu10_ota_password
+
+# WiFi instellingen:    
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  power_save_mode: none
+  post_connect_roaming: true
+# Statische IP instellingen:
+  manual_ip:
+    static_ip: xxx.xxx.xxx
+    gateway: xxx.xxx.xxx
+    subnet: xxx.xxx.xxx
+
+# Tijd Synchroniseren met Home Assistant:
+time:
+  - platform: homeassistant
+    id: huidige_tijd
+    on_time_sync:
+      - component.update: uptime_timestamp
+      - logger.log: "De tijd is gesynchroniseerd!"
+
+# Globals:        
+globals:
+  - id: effect_was_active
+    type: bool
+    restore_value: no
+    initial_value: 'false'         
+
+# LED Driver BP5758D:    
+bp5758d:
+  data_pin: P26
+  clock_pin: P24
+  id: led_driver
+
+# LED Driver BP5758D Outputs:  
+output: 
+  - platform: bp5758d
+    id: output_red
+    bp5758d_id: led_driver
+    channel: 1
+    current: 7
+  - platform: bp5758d
+    id: output_green
+    bp5758d_id: led_driver
+    channel: 2
+    current: 7
+  - platform: bp5758d
+    id: output_blue
+    bp5758d_id: led_driver
+    channel: 3
+    current: 7
+  - platform: bp5758d
+    id: output_warm_white
+    bp5758d_id: led_driver
+    channel: 4
+    current: 13
+  - platform: bp5758d
+    id: output_cold_white
+    bp5758d_id: led_driver
+    channel: 5
+    current: 13
+
+# LSC GU1- Light:    
+light:
+  - platform: rgbww
+    name: "LSC GU10"
+    id: lsc_gu10
+    icon: mdi:lightbulb-spot
+    color_interlock: true
+    constant_brightness: true
+    red: output_red
+    green: output_green
+    blue: output_blue
+    warm_white: output_warm_white
+    cold_white: output_cold_white
+    warm_white_color_temperature: 2700 K
+    cold_white_color_temperature: 6500 K
+    default_transition_length: 0.85s
+    restore_mode: RESTORE_DEFAULT_OFF
+    on_turn_on:
+      then:
+        - light.turn_on:
+            id: lsc_gu10
+            cold_white: 0%
+            warm_white: 100%
+            brightness: 65%
+    on_state:
+      then:
+        - lambda: |-
+            std::string current_effect = id(lsc_gu10).get_effect_name();
+            bool effect_active = (current_effect != "None");
+            if (id(effect_was_active) && !effect_active) {
+              id(effect_was_active) = false;
+              auto call = id(lsc_gu10).turn_on();
+              call.set_color_mode(esphome::light::ColorMode::COLD_WARM_WHITE);
+              call.set_cold_white(0.0f);
+              call.set_warm_white(1.0f);
+              call.set_brightness(0.65f);
+              call.set_transition_length(500);
+              call.perform();
+            } else {
+              id(effect_was_active) = effect_active;
+            }
+
+    effects:
+      - pulse:
+          name: "Identificeren"
+          transition_length:
+            on_length: 500ms
+            off_length: 500ms
+          update_interval: 1.5s           
+      - lambda:
+          name: "Kaarslicht"
+          update_interval: 100ms
+          lambda: |-
+            uint64_t epoch_ms = (uint64_t) id(huidige_tijd).now().timestamp * 1000ULL + (millis() % 1000);
+            uint32_t bucket = (uint32_t)(epoch_ms / 100ULL);
+            auto hash01 = [](uint32_t seed) -> float {
+              seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+              return (float)(seed % 10000) / 10000.0f;
+            };
+            float jitter = hash01(bucket * 2654435761u);
+            float level = 0.80f + jitter * 0.20f;
+            auto call = id(lsc_gu10).turn_on();
+            call.set_color_mode(esphome::light::ColorMode::COLD_WARM_WHITE);
+            call.set_cold_white(0.0f);
+            call.set_warm_white(level);
+            call.set_transition_length(0);
+            call.perform();
+      - strobe:
+          name: "Kleurentest"
+          colors:
+            - state: true
+              color_mode: COLD_WARM_WHITE
+              brightness: 100%
+              warm_white: 100%
+              cold_white: 0%
+              duration: 3500ms
+              transition_length: 850ms
+            - state: true
+              color_mode: COLD_WARM_WHITE
+              brightness: 100%
+              warm_white: 0%
+              cold_white: 100%
+              duration: 3500ms
+              transition_length: 850ms
+            - state: true
+              color_mode: RGB
+              brightness: 100%
+              red: 100%
+              green: 0%
+              blue: 0%
+              duration: 3500ms
+              transition_length: 850ms
+            - state: true
+              color_mode: RGB
+              brightness: 100%
+              red: 0%
+              green: 100%
+              blue: 0%
+              duration: 3500ms
+              transition_length: 850ms
+            - state: true
+              color_mode: RGB
+              brightness: 100%
+              red: 0%
+              green: 0%
+              blue: 100%
+              duration: 3500ms
+              transition_length: 850ms
+      - strobe:
+          name: "Disco Strobe"
+          colors:
+            - state: true
+              brightness: 100%
+              red: 100%
+              green: 100%
+              blue: 100%
+              duration: 100ms
+            - state: false
+              duration: 100ms
+      - lambda:
+          name: "Regenboog"
+          update_interval: 50ms
+          lambda: |-
+            uint64_t epoch_ms = (uint64_t) id(huidige_tijd).now().timestamp * 1000ULL + (millis() % 1000);
+            float hue = fmod((double) epoch_ms / 20.0, 360.0);
+            float r, g, b;
+            float c = 1.0;
+            float x = c * (1 - fabs(fmod(hue / 60.0, 2) - 1));
+            if (hue < 60)       { r = c; g = x; b = 0; }
+            else if (hue < 120) { r = x; g = c; b = 0; }
+            else if (hue < 180) { r = 0; g = c; b = x; }
+            else if (hue < 240) { r = 0; g = x; b = c; }
+            else if (hue < 300) { r = x; g = 0; b = c; }
+            else                { r = c; g = 0; b = x; }
+            auto call = id(lsc_gu10).turn_on();
+            call.set_color_mode(esphome::light::ColorMode::RGB);
+            call.set_red(r);
+            call.set_green(g);
+            call.set_blue(b);
+            call.set_transition_length(0);
+            call.perform();
+      - lambda:
+          name: "Zwaailicht"
+          update_interval: 20ms
+          lambda: |-
+            uint64_t epoch_ms = (uint64_t) id(huidige_tijd).now().timestamp * 1000ULL + (millis() % 1000);
+            bool toggle = (epoch_ms / 300ULL) % 2ULL == 0ULL;
+            auto call = id(lsc_gu10).turn_on();
+            call.set_color_mode(esphome::light::ColorMode::RGB);
+            if (toggle) {
+              call.set_red(1.0f);
+              call.set_green(0.0f);
+              call.set_blue(0.0f);
+            } else {
+              call.set_red(0.0f);
+              call.set_green(0.0f);
+              call.set_blue(1.0f);
+            }
+            call.set_transition_length(0);
+            call.perform();           
+      - lambda:
+          name: "Regenboog Ademend"
+          update_interval: 50ms
+          lambda: |-
+            uint64_t epoch_ms = (uint64_t) id(huidige_tijd).now().timestamp * 1000ULL + (millis() % 1000);
+            float hue = fmod((double) epoch_ms / 25.0, 360.0);
+            float bphase = fmod((double) epoch_ms / 1000.0 * 0.5, 6.283);
+            float brightness = 0.3 + 0.7 * ((sin(bphase) + 1.0) / 2.0);
+            float r, g, b;
+            float c = 1.0;
+            float x = c * (1 - fabs(fmod(hue / 60.0, 2) - 1));
+            if (hue < 60)       { r = c; g = x; b = 0; }
+            else if (hue < 120) { r = x; g = c; b = 0; }
+            else if (hue < 180) { r = 0; g = c; b = x; }
+            else if (hue < 240) { r = 0; g = x; b = c; }
+            else if (hue < 300) { r = x; g = 0; b = c; }
+            else                { r = c; g = 0; b = x; }
+            auto call = id(lsc_gu10).turn_on();
+            call.set_color_mode(esphome::light::ColorMode::RGB);
+            call.set_red(r * brightness);
+            call.set_green(g * brightness);
+            call.set_blue(b * brightness);
+            call.set_transition_length(0);
+            call.perform();  
+      - lambda:
+          name: "Aurora Borealis"
+          update_interval: 70ms
+          lambda: |-
+            uint64_t epoch_ms = (uint64_t) id(huidige_tijd).now().timestamp * 1000ULL + (millis() % 1000);
+            float phase = fmod((double) epoch_ms / 1000.0 * 0.3, 6.283);
+            float green_level = 0.4 + 0.4 * sin(phase);
+            float blue_level = 0.3 + 0.3 * sin(phase + 2.0);
+            float purple_mix = 0.2 + 0.2 * sin(phase + 4.0);
+            auto call = id(lsc_gu10).turn_on();
+            call.set_color_mode(esphome::light::ColorMode::RGB);
+            call.set_red(purple_mix);
+            call.set_green(green_level);
+            call.set_blue(blue_level);
+            call.set_transition_length(0);
+            call.perform();   
+      - lambda:
+          name: "Discobal"
+          update_interval: 20ms
+          lambda: |-
+            const uint64_t bucket_ms = 120;
+            uint64_t epoch_ms = (uint64_t) id(huidige_tijd).now().timestamp * 1000ULL + (millis() % 1000);
+            uint32_t bucket = (uint32_t)(epoch_ms / bucket_ms);
+            auto hash01 = [](uint32_t seed) -> float {
+              seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+              return (float)(seed % 10000) / 10000.0f;
+            };
+            float r = hash01(bucket * 2654435761u + 1);
+            float g = hash01(bucket * 2654435761u + 2);
+            float b = hash01(bucket * 2654435761u + 3);
+            auto call = id(lsc_gu10).turn_on();
+            call.set_color_mode(esphome::light::ColorMode::RGB);
+            call.set_red(r);
+            call.set_green(g);
+            call.set_blue(b);
+            call.set_transition_length(0);
+            call.perform(); 
+      - lambda:
+          name: "Confetti"
+          update_interval: 20ms
+          lambda: |-
+            const uint64_t bucket_ms = 100;
+            uint64_t epoch_ms = (uint64_t) id(huidige_tijd).now().timestamp * 1000ULL + (millis() % 1000);
+            uint32_t bucket = (uint32_t)(epoch_ms / bucket_ms);
+            auto hash01 = [](uint32_t seed) -> float {
+              seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+              return (float)(seed % 10000) / 10000.0f;
+            };
+            float chance = hash01(bucket * 2654435761u) * 100.0f;
+            auto call = id(lsc_gu10).turn_on();
+            call.set_color_mode(esphome::light::ColorMode::RGB);
+            if (chance < 25) {
+              float r = hash01(bucket * 2654435761u + 1);
+              float g = hash01(bucket * 2654435761u + 2);
+              float b = hash01(bucket * 2654435761u + 3);
+              call.set_red(r);
+              call.set_green(g);
+              call.set_blue(b);
+            } else {
+              call.set_red(0.0f);
+              call.set_green(0.0f);
+              call.set_blue(0.0f);
+            }
+            call.set_transition_length(0);
+            call.perform();    
+      - lambda:
+          name: "Waarschuwingsknipper"
+          update_interval: 20ms
+          lambda: |-
+            const uint64_t bucket_ms = 500;
+            uint64_t epoch_ms = (uint64_t) id(huidige_tijd).now().timestamp * 1000ULL + (millis() % 1000);
+            bool toggle = (epoch_ms / bucket_ms) % 2ULL == 0ULL;
+            auto call = id(lsc_gu10).turn_on();
+            call.set_color_mode(esphome::light::ColorMode::RGB);
+            if (toggle) {
+              call.set_red(1.0f);
+              call.set_green(0.5f);
+              call.set_blue(0.0f);
+            } else {
+              call.set_red(0.0f);
+              call.set_green(0.0f);
+              call.set_blue(0.0f);
+            }
+            call.set_transition_length(0);
+            call.perform();   
+      - lambda:
+          name: "IJsschittering"
+          update_interval: 130ms
+          lambda: |-
+            uint64_t epoch_ms = (uint64_t) id(huidige_tijd).now().timestamp * 1000ULL + (millis() % 1000);
+            uint32_t bucket = (uint32_t)(epoch_ms / 130ULL);
+            auto hash01 = [](uint32_t seed) -> float {
+              seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+              return (float)(seed % 10000) / 10000.0f;
+            };
+            float base_cold = 0.25f;
+            float sparkle_chance = hash01(bucket * 2654435761u) * 100.0f;
+            auto call = id(lsc_gu10).turn_on();
+            call.set_color_mode(esphome::light::ColorMode::COLD_WARM_WHITE);
+            if (sparkle_chance < 10) {
+              call.set_cold_white(1.0f);
+            } else {
+              call.set_cold_white(base_cold);
+            }
+            call.set_warm_white(0.0f);
+            call.set_transition_length(0);
+            call.perform();
+      - lambda:
+          name: "IJsschittering Blauw"
+          update_interval: 20ms
+          lambda: |-
+            const uint64_t bucket_ms = 130;
+            uint64_t epoch_ms = (uint64_t) id(huidige_tijd).now().timestamp * 1000ULL + (millis() % 1000);
+            uint32_t bucket = (uint32_t)(epoch_ms / bucket_ms);
+            auto hash01 = [](uint32_t seed) -> float {
+              seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+              return (float)(seed % 10000) / 10000.0f;
+            };
+            float sparkle_chance = hash01(bucket * 2654435761u) * 100.0f;
+            auto call = id(lsc_gu10).turn_on();
+            call.set_color_mode(esphome::light::ColorMode::RGB);
+            if (sparkle_chance < 12) {
+              call.set_red(1.0f);
+              call.set_green(1.0f);
+              call.set_blue(1.0f);
+            } else {
+              call.set_red(0.02f);
+              call.set_green(0.10f);
+              call.set_blue(0.35f);
+            }
+            call.set_transition_length(0);
+            call.perform();            
+
+# Herstart Informatie:
+text_sensor:
+  - platform: debug
+    reset_reason:
+      name: Herstart Informatie
+# IP Adres & SSID
+  - platform: wifi_info
+    ip_address:
+      name: IP Address
+      icon: mdi:ip-network-outline
+    ssid:
+      name: SSID
+      icon: mdi:wifi-lock
+# ESPHome Versie
+  - platform: version
+    name: ESPHome Versie
+    hide_timestamp: true
+    hide_hash: true
+    entity_category: diagnostic
+# LibreTiny Versie
+  - platform: libretiny
+    version: 
+      name: LibreTiny Versie
+      entity_category: diagnostic
+
+# Herstart Node:
+button:
+  - platform: restart
+    name: "Herstart"
+    icon: "mdi:restart"
+
+sensor:
+# Uptime Sensor & Chip Temperatuur: 
+  - platform: uptime
+    name: Uptime Verborgen
+    id: uptime_seconds    
+    unit_of_measurement: h
+    device_class: duration
+    state_class: total_increasing
+    entity_category: diagnostic
+    update_interval: 10s
+    icon: mdi:clock-start
+    internal: true
+  - platform: template
+    id: uptime_timestamp
+    name: Uptime
+    device_class: timestamp
+    entity_category: diagnostic
+    accuracy_decimals: 0
+    update_interval: never
+    icon: mdi:clock-start
+    lambda: |-
+      static float timestamp = (
+        id(huidige_tijd).utcnow().timestamp - id(uptime_seconds).state
+      );
+      return timestamp;     
+  - platform: internal_temperature
+    name: "T1-C-HL Temperatuur"
+    id: temperatuur
+    icon: mdi:temperature-celsius
+    unit_of_measurement: "°C"
+    entity_category: "diagnostic"
+    device_class: temperature
+    update_interval: 10s      
+
+# Wi-Fi Signaal Info
+  - platform: wifi_signal
+    name: Wi-Fi Signaalsterkte dB
+    icon: mdi:wifi
+    id: wifi_signal_db
+    update_interval: 10s
+    entity_category: "diagnostic"
+  - platform: copy # Reports the WiFi signal strength in %
+    source_id: wifi_signal_db
+    name: Wi-Fi Signaalsterkte
+    icon: mdi:signal
+    filters:
+      - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
+    unit_of_measurement: "%"
+    entity_category: "diagnostic"
+    device_class: ""
+  - platform: template
+    name: Wi-Fi Kanaal
+    icon: mdi:wifi-settings
+    lambda: return WiFi.channel();
+    entity_category: "diagnostic"
+    accuracy_decimals: 0
+    update_interval: 60s
+# CPU Frequenty:
+  - platform: debug
+    cpu_frequency:
+      name: "CPU Frequenty"
+      id: cpu_frequentie
+      accuracy_decimals: 0
+      icon: mdi:cpu-32-bit
+      unit_of_measurement: "MHz"
+      entity_category: diagnostic
+      filters:
+        - multiply: 0.000001
+        - round: 0
