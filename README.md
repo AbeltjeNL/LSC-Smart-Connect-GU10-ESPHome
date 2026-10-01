@@ -22,7 +22,7 @@ Now you can see the PCB. Nothing much to see so I yanked out the board to see if
 
 <img width="4032" height="3024" alt="GU10-3" src="https://github.com/user-attachments/assets/3e384b8a-15e5-4a94-8f68-85aac121d689" />
 
-Pretty darn nice! You don't have to remove the PCB from the glass housing to flash this light. You can solder the 3V3 and GND wires to the two contact pads on the left of the resistor and the TX, RX and CEN pins are in the front of the PCB were you can solder easily.
+Pretty darn nice! You don't have to remove the PCB from the glass housing to flash this light. You can solder the 3V3 and GND wires to the two contact pads on the left of the resistor (R3) and the TX, RX and CEN pins are in the front of the PCB were you can solder easily.
 
 Next, connect the soldered wires to your UART flasher according to the diagram below:
 ```
