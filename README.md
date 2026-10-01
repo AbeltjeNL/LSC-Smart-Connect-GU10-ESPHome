@@ -81,4 +81,4 @@ Once you have soldered suitable wires (dupont) to the following pins: 3V3, GND, 
 - Enjoy! :)
 
 > [!NOTE]
-Write basic ESPHome yaml configuration @AbeltjeNL!
+The espome_config.yaml file contains a working configuration with some light effects! Adjust the configuration to your personal needs.
