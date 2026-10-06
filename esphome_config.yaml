@@ -1,6 +1,6 @@
 # ESPHome instellingen:
 esphome:
-  name: "lsc-gu10"
+  #name: "lsc-gu10" not needed when you specify the name elsewhere 
   friendly_name: "LSC GU10"
   comment: "GU10 spot"
 
