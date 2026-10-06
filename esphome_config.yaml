@@ -1,6 +1,6 @@
 # ESPHome instellingen:
 esphome:
-  #name: "lsc-gu10" not needed when you specify the name elsewhere 
+  name: "lsc-gu10"
   friendly_name: "LSC GU10"
   comment: "GU10 spot"
 
@@ -103,7 +103,7 @@ output:
 # LSC GU1- Light:    
 light:
   - platform: rgbww
-    name: "LSC GU10"
+    name: None
     id: lsc_gu10
     icon: mdi:lightbulb-spot
     color_interlock: true
